@@ -108,13 +108,13 @@
         for (let index = 0; index < hostnameArray.length; ++index) {
 			$.get(hostnameArray[index] + "/api/peers?state=2").success(function(data){
 			  data.peers.forEach(function(peer){
+			  	if (peer.height!=null){
 					var data2 = {
 						"ip": peer.ip,
 						"version": peer.version,
 						"height": peer.height
 						}
 					var arrayIndex = peer.ip.replace(/\./g, "");//remove period from ip address
-					
 					if(typeof(tempArrayForIndex[arrayIndex]) != "undefined" && tempArrayForIndex[arrayIndex] !== null) {
 						if (window.syncdata[tempArrayForIndex[arrayIndex]].height<peer.height){ //If another peer saw it more recently update the entry
 							window.syncdata[tempArrayForIndex[arrayIndex]]=data2;
@@ -125,6 +125,7 @@
 						tempArrayForIndex[arrayIndex]=tempIndex;
 						tempIndex++;
 					}
+				}
 			  });
 			});
 		}
