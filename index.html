@@ -2,7 +2,7 @@
 <html lang="en-us">
   <head>
     <meta charset="UTF-8">
-    <title>Lisk Network Monitor by fix</title>
+    <title>Lisk Network Monitor by MrV</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
@@ -20,29 +20,52 @@
   </head>
   <body>
     <section class="page-header" style="margin:0;padding:50px;">
-      <h1 class="project-name">Lisk Network Monitor Testnet </h1>
+      <h1 class="project-name">Lisk Network Monitor</h1>
       <h2 class="project-tagline">Real time network monitoring!!</h2>
-      <a href="https://github.com/Isabello/lisk-network-monitor" class="btn">View source on GitHub</a>
+      <button id="pauseButton" class="btn">Pause</button>
     </section>
 
     <section class="container">
       <h1 class="text-center"><span id="health">0</span>% of network in sync with height <span id="height"></span></h1>
+      <h1 class="text-center"><span id="healthVersion">0</span>% of network up to date at v<span id="version"></span></h1>
       <div class="col-lg-12"><br></div>
-      <canvas id="barChart" class="col-lg-6" width="400" height="200"></canvas>
-      <canvas id="lineChart" class="col-lg-6" width="400" height="200"></canvas>
-
-      <div id="peers" class="col-lg-12">
-
+      <!--<canvas id="barChart" class="col-lg-6" width="400" height="200"></canvas>-->
+      <!--<canvas id="lineChart" class="col-lg-6" width="400" height="200"></canvas>-->
+      <div class="row">
+      	<canvas id="barChart" class="col-lg-8 col-md-offset-2"></canvas>
       </div>
+
+	  <div class="row">
+		  <div class="col-lg-12">
+			  <table class="table table-bordered">
+				<thead>
+					<tr>
+						<th>IP</th>
+						<th>Height</th>
+						<th>Version</th>
+					</tr>
+				</thead>
+				<tbody id="peersTable">
+				</tbody>
+			  </table>
+		  </div>
+		  <div id="peers" class="col-lg-12">
+
+		  </div>
+	  </div>
       <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/Isabello/lisk-network-monitor">Lisk Network Monitor</a> is maintained by <a href="https://github.com/Isabello">Isabella</a>, with original code from  <a href="https://github.com/fix/lisk-network-monitor">Fix</a> </span>
+        <span class="site-footer-owner"><a href="https://github.com/mrv777/lisk-network-monitor">Lisk Network Monitor</a> is maintained by <a href="https://github.com/mrv777">MrV</a>, forked from <a href="https://github.com/Isabello/lisk-network-monitor">Isabella - Lisk Network Monitor</a> and the original code from  <a href="https://github.com/fix/lisk-network-monitor">Fix</a> </span>
 
       </footer>
 
     </section>
 
     <script>
-      hostname="https://testnet.liskwallet.net"
+      //hostname="https://testnet.liskwallet.net"
+      //hostname="http://lisktools.io:8000"
+      var paused=false;
+      $.ajaxSetup({timeout:750}); //in milliseconds
+      var hostnameArray = ["https://lisk.liskwallet.io", "https://wallet.lisknode.io", "https://01.lskwallet.space", "https://liskwallet.punkrock.me"];
       window.chartdata=[];
       window.chartlabels=[];
       window.syncdata=[];
@@ -53,30 +76,59 @@
       $(window).ready(function(){
         ticker();
       });
+      
+      $("#pauseButton").click(function () {
+		if (paused==false){
+			paused=true;
+			$("#pauseButton").text("Play");
+		}
+		else {
+			paused=false;
+			$("#pauseButton").text("Pause");
+			ticker();
+		}
+	  });
 
       function ticker(){
         setTimeout(function(){
           displayPeers();
           checkPeers();
         },100);
-        setTimeout(function(){
-          ticker();
-        },2500);
+        if (paused==false){
+			setTimeout(function(){
+			  ticker();
+			},3500);
+		}
       }
 
       function checkPeers(){
         window.syncdata=[];
-        $.get(hostname + "/api/peers?state=2").success(function(data){
-          data.peers.forEach(function(peer){
-		var data2 = {
-		"ip": peer.ip,
-		"version": peer.version,
-		"height": peer.height
+        var tempArrayForIndex = [];
+        var tempIndex = 0;
+        for (let index = 0; index < hostnameArray.length; ++index) {
+			$.get(hostnameArray[index] + "/api/peers?state=2").success(function(data){
+			  data.peers.forEach(function(peer){
+					var data2 = {
+						"ip": peer.ip,
+						"version": peer.version,
+						"height": peer.height
+						}
+					var arrayIndex = peer.ip.replace(/\./g, "");//remove period from ip address
+					
+					if(typeof(tempArrayForIndex[arrayIndex]) != "undefined" && tempArrayForIndex[arrayIndex] !== null) {
+						if (window.syncdata[tempArrayForIndex[arrayIndex]].height<peer.height){ //If another peer saw it more recently update the entry
+							window.syncdata[tempArrayForIndex[arrayIndex]]=data2;
+						}
+					}
+					else {
+						window.syncdata.push(data2);
+						tempArrayForIndex[arrayIndex]=tempIndex;
+						tempIndex++;
+					}
+			  });
+			});
 		}
-                window.syncdata.push(data2);
-          });
-        });
-      }
+	  }
 
 
       function chartPeers(){
@@ -96,7 +148,7 @@
         var ctx = $("#barChart").get(0).getContext("2d");
         var myBarChart = new Chart(ctx).Bar(data, {animation: false,showTooltips:false});
 
-        data = {
+        /*data = {
             labels: window.charttime,
             datasets: [
                 {
@@ -113,7 +165,7 @@
         };
 
         ctx = $("#lineChart").get(0).getContext("2d");
-        var myLineChart = new Chart(ctx).Line(data, { scaleShowGridLines : false, pointDot : false,showTooltips:false,animation: false});
+        var myLineChart = new Chart(ctx).Line(data, { scaleShowGridLines : false, pointDot : false,showTooltips:false,animation: false});*/
       }
 
       function displayPeers(){
@@ -122,19 +174,23 @@
         var height=10000000000;
         var highestHeight=0;
         var health=0;
+        var version="0.5.2";
+        var numVersion=0;
         var first=true;
         var count=-1;
         $("#peers").html("");
+        $("#peersTable").html("");
         window.syncdata=window.syncdata.sort(function(a,b){
           return b.height-a.height
         });
         for(var i in window.syncdata){
+          var versionColor=heightColor="background-color:#e74c3c";
           var sync=window.syncdata[i];
           if(sync.height<height){
             window.chartlabels.push(sync.height);
             window.chartdata.push(0);
             count=window.chartdata.length-1;
-            $("#peers").append("<h2>"+sync.height+"</h2>| ");
+            //$("#peers").append("<h2>"+sync.height+"</h2>");
             if(first&&(health>1)){
               first=false;
               highestHeight=sync.height;
@@ -144,14 +200,22 @@
             }
             height=sync.height;
           }
-          if(highestHeight-sync.height<2){
+          if(highestHeight-sync.height<4){
             health++;
+            heightColor="background-color:#18bc9c";
+          }
+          if (sync.version==version){
+          	numVersion++;
+          	versionColor="background-color:#18bc9c";
           }
           window.chartdata[count]=window.chartdata[count]+1;
 
-          $("#peers").append("<b>"+sync.ip+"</b> "+sync.version+"| ");
+          //$("#peers").append("<b>"+sync.ip+"</b> "+sync.version+" | ");
+          $("#peersTable").append("<tr><td>"+sync.ip+"</td><td style='"+heightColor+"'>"+sync.height+"</td><td style='"+versionColor+"'>"+sync.version+"</td></tr>");
         }
         $("#health").html((health*100/window.syncdata.length).toFixed(0));
+        $("#version").html(version);
+        $("#healthVersion").html((numVersion*100/window.syncdata.length).toFixed(0));
         window.charttime.push("");
         window.chartheights.push((health*100/window.syncdata.length));
         chartPeers();
